@@ -1,0 +1,25 @@
+---
+version: "3"
+services:
+  #serveur web sur la base de l'image créée
+  flask_webserver:
+    image: flask-web:1.0.0 
+    container_name: flask_webserver
+    ports:
+      - 80:5000
+    depends_on:
+      - mariadb
+    restart : always
+    volumes:
+      - /app/:/home/osboxes/formation-docker/devops-capge-2022/kubernetes/exos/exo3-flask/src
+
+  #serveur de base de donnees mariadb
+  mariadb:
+    image: mariadb:10
+    container_name: mariadb
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: juve 
+
+    ports:
+      - 3306:3306
