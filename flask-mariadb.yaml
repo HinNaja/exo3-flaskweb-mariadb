@@ -1,0 +1,144 @@
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: exo3
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: flaskweb
+  namespace : exo3
+
+spec: 
+  replicas: 1
+  selector:
+    matchLabels:
+      app: flaskweb
+
+  template:
+    metadata:
+      labels:
+        app: flaskweb
+    spec:
+      containers:
+      - name: flaskweb-container
+        image: dockerhin/flask-web:1.0.0
+        ports:
+        - containerPort: 5000
+          protocol: TCP
+        resources :
+          requests:
+            memory: "64Mi"
+            cpu: "2m"
+          limits:
+            memory: "128Mi"
+            cpu: "100m"
+
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: flaskweb-srv
+  namespace : exo3
+
+spec: 
+      type : NodePort
+      selector : 
+        app: flaskweb
+      ports:
+      - port: 80
+        targetPort: 5000
+        nodePort: 32700
+        protocol : TCP
+
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  namespace: exo3
+  name: flaskweb
+spec:
+  maxReplicas: 8
+  minReplicas: 1
+  metrics:
+  - resource:
+      name: cpu
+      target:
+        averageUtilization: 70
+        type: Utilization
+    type: Resource
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: flaskweb
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  namespace : exo3
+  name: mariadb
+  labels:
+    app: mariadb
+spec:
+  ports:
+    - port: 3306
+  selector:
+    app: mariadb
+    
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  namespace: exo3
+  name: mariadb-pv-claim
+  labels:
+    app: mariadb
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 200Gi
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  namespace : exo3
+  name: mariadb
+  labels:
+    app: mariadb
+spec:
+  selector:
+    matchLabels:
+      app: mariadb
+     
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: mariadb
+        
+    spec:
+      containers:
+      - name: mariadb
+        image: mariadb:10
+        env:
+        - name: MYSQL_ROOT_PASSWORD
+          value : juve 
+        ports:
+        - containerPort: 3306
+          name: mariadb
+        volumeMounts:
+        - name: mariadb-persistent-storage
+          mountPath: /var/lib/mysql
+      volumes:
+      - name: mariadb-persistent-storage
+        persistentVolumeClaim:
+          claimName: mariadb-pv-claim
